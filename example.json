@@ -1,0 +1,6 @@
+[
+  {"source_id": "ATL5", "operator": "=", "test_data": "HIGH", "type": "String"},
+  {"source_id": "ATL4", "operator": "<", "test_data": 10, "type": "Integer"},
+  {"source_id": "ATL9", "operator": "nif", "test_data": "", "type": "Datetime"},
+  {"source_id": "ATL5", "operator": "nip", "test_data": "", "type": "Datetime"}
+]
