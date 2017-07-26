@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from multiprocessing import Pool
 import sys
 
 
@@ -25,11 +26,7 @@ class StringValidator(object):
 		Returns => str
 		"""
 		# Just check if data is a string type
-		if isinstance(data, (str, unicode)):
-			return data
-		else:
-			# Otherwise lets try and convert it to a string otherwise
-			return str(data)
+		return data
 
 	@classmethod
 	def validate(cls, operator, test_data, data):
@@ -49,13 +46,13 @@ class StringValidator(object):
 				return True
 			else:
 				raise ValidationError("Signal must be " + test_data + " was " + data)
-		
+
 		elif operator == NOTEQUAL:
 			if test_data != data:
 				return True
 			else:
 				raise ValidationError("Signal must not be " + test_data + " was " + data)
-		
+
 		else:
 			return True
 
@@ -65,12 +62,14 @@ class DatetimeValidator(object):
 	def convert_data(data):
 		"""
 		data is in string format and must be converted to a python datetime object
-		
+
 		data => str
-		
+
 		Returns => datetime.datetime instance
 		"""
-		
+		if data == '':
+			return None
+
 		try:
 			return datetime.strptime(data, "%Y-%m-%d %H:%M:%S")
 		except:
@@ -86,7 +85,7 @@ class DatetimeValidator(object):
 		data => string, format=datetime
 
 		Returns => boolean;  True if data is valid
-		
+
 		raises => ValidationError on invalid data
 
 		"""
@@ -98,38 +97,37 @@ class DatetimeValidator(object):
 			if data >= time_now:
 				return True
 			else:
-				raise ValidationError("Date must not be in past WAS " + str_data )	
+				raise ValidationError("Date must not be in past WAS " + str_data )
 
 		elif operator == NOTINFUTURE:
 			if data <= time_now:
 				return True
 			else:
-				raise ValidationError("Date must not be in future WAS " + str_data )	
+				raise ValidationError("Date must not be in future WAS " + str_data )
 
-		test_data = cls.convert_data(test_data)
 		str_test_data = str(test_data)
-		
+
 
 		if operator == GREATERTHAN:
 			if data > test_data:
 				return True
 			else:
-				raise ValidationError("Date must be after " + str_test_data + " NOT " + str_data)	
+				raise ValidationError("Date must be after " + str_test_data + " NOT " + str_data)
 
 		elif operator == LESSTHAN:
 			if data < test_data:
 				return True
 			else:
-				raise ValidationError("Date must be before " + str_test_data + " NOT " + str_data)	
+				raise ValidationError("Date must be before " + str_test_data + " NOT " + str_data)
 
 class IntegerValidator(object):
 	@staticmethod
 	def convert_data(data):
 		"""
 		data is provided in string format and must be converted to float before validation
-		
+
 		data => str
-		
+
 		Returns float instance
 		"""
 		try:
@@ -165,31 +163,31 @@ class IntegerValidator(object):
 			if data != test_data:
 				return True
 			else:
-				raise ValidationError("Signal must be " + str_test_data + " NOT " + str_data)		
+				raise ValidationError("Signal must be " + str_test_data + " NOT " + str_data)
 
 		elif operator == GREATERTHAN:
 			if data > test_data:
 				return True
 			else:
-				raise ValidationError("Signal must be greater than " + str_test_data + " NOT " + str_data)	
+				raise ValidationError("Signal must be greater than " + str_test_data + " NOT " + str_data)
 
 		elif operator == LESSTHAN:
 			if data < test_data:
 				return True
 			else:
-				raise ValidationError("Signal must be less than " + str_test_data + " NOT " + str_data)	
+				raise ValidationError("Signal must be less than " + str_test_data + " NOT " + str_data)
 
 		elif operator == GREATERTHANEQUAL:
 			if data >= test_data:
 				return True
 			else:
-				raise ValidationError("Signal must be greater or equal to " + str_test_data + " NOT " + str_data)	
+				raise ValidationError("Signal must be greater or equal to " + str_test_data + " NOT " + str_data)
 
 		elif operator == LESSTHANEQUAL:
 			if data <= test_data:
 				return True
 			else:
-				raise ValidationError("Signal must be less then or equal to " + str_test_data + " NOT " + str_data)	
+				raise ValidationError("Signal must be less then or equal to " + str_test_data + " NOT " + str_data)
 
 
 class Rule(object):
@@ -203,10 +201,13 @@ class Rule(object):
 		self.type = type
 		self.validator = self.VALIDATORS[type]
 		self.operator = operator
-		self.test_data = test_data
+		# self.test_data = test_data
+
+		# parse value of test date from string
+		self.test_data = self.validator.convert_data(test_data)
 
 	def validate(self, data):
-		return self.validator.validate(self.operator, self.test_data, data)  
+		return self.validator.validate(self.operator, self.test_data, data)
 		# This will either return True or raise a validation error
 
 class RuleEngine(object):
@@ -216,7 +217,7 @@ class RuleEngine(object):
 
 	def load_rules_file(self, filename = 'rules.json'):
 		"""
-		Function loads and parses a json encoded rules file. 
+		Function loads and parses a json encoded rules file.
 		Adds parsed rules to the engine
 
 		filename => str; path to rules file
@@ -256,7 +257,7 @@ class RuleEngine(object):
 		"""
 		source_id = rule['source_id']
 		rule = Rule( rule['type'], rule['operator'], rule['test_data'] )
-		
+
 		if source_id not in self.rules:
 			self.rules[source_id] = []
 
@@ -285,17 +286,37 @@ class RuleEngine(object):
 					if raise_errors:
 						raise
 					else:
-						print(signal_name + ": " + str(e))
+						#print(signal_name + ": " + str(e))
+						pass
 
-if __name__ == "__main__":
+
+def multiprocess(stream):
 	ruleengine = RuleEngine()
 	ruleengine.load_rules_file()
+	ruleengine.validate_data_stream(stream)
 
-	datastream = open('raw_data.json', 'r').read()
-	datastream = json.loads(datastream)
+if __name__ == "__main__":
 
-	ruleengine.validate_data_stream(datastream)
-	ruleengine.write_rules_file()
+
+	data = open('raw_data.json', 'r').read()
+	data = json.loads(data)
+
+	#ruleengine.validate_data_stream(datastream)
+
+	# for i in range(0,500000):
+	# 	ruleengine.validate_data_stream(datastream)
+
+	pool = Pool(processes=4)
+
+	# Generate 10 million datapoints
+	pooldata = [ data for i in range(0, 5000) ]
+
+	# Map these datapoints to threads
+	pool.map_async(multiprocess, pooldata)
+
+	pool.close()
+	pool.join()
+
 
 
 

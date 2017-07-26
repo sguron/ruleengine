@@ -45,7 +45,7 @@ Since rules are read from and stored in a text file it would not be easily possi
 
 **2) What's the runtime performance? What is the complexity? Where are the bottlenecks?**
 
-At the moment the code is processing input data linearly and for every signal there may be one or more rules that would have to be applied to it. So at a minimum, the code has a worst case time complexity of n * m where m is the number of rules. However, considering the current implementation of validators it is expected that it would add a bit more time complexity to the worst case scenario.
+At the moment the code is processing input data linearly and for every signal there may be one or more rules that would have to be applied to it. Rules are stored in a hashtable with signal name as the key. So for every incoming datapoint only those rules are fetched and iterated through that apply to this signal specifically. Runtime performance is between O(n) to O(n * k) where k is the maximum number of rules defined for a specific signal. K is *not* the same as number of all rules defined.
 
 The primary bottleneck I see is the linear processing of data stream and the overhead introduced by python's interpreter.
 
