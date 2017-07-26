@@ -25,11 +25,7 @@ class StringValidator(object):
 		Returns => str
 		"""
 		# Just check if data is a string type
-		if isinstance(data, (str, unicode)):
-			return data
-		else:
-			# Otherwise lets try and convert it to a string otherwise
-			return str(data)
+		return data
 
 	@classmethod
 	def validate(cls, operator, test_data, data):
@@ -70,6 +66,8 @@ class DatetimeValidator(object):
 		
 		Returns => datetime.datetime instance
 		"""
+		if data == '':
+			return None
 		
 		try:
 			return datetime.strptime(data, "%Y-%m-%d %H:%M:%S")
@@ -106,7 +104,6 @@ class DatetimeValidator(object):
 			else:
 				raise ValidationError("Date must not be in future WAS " + str_data )	
 
-		test_data = cls.convert_data(test_data)
 		str_test_data = str(test_data)
 		
 
@@ -203,7 +200,10 @@ class Rule(object):
 		self.type = type
 		self.validator = self.VALIDATORS[type]
 		self.operator = operator
-		self.test_data = test_data
+		# self.test_data = test_data
+
+		# parse value of test date from string
+		self.test_data = self.validator.convert_data(test_data)
 
 	def validate(self, data):
 		return self.validator.validate(self.operator, self.test_data, data)  
@@ -264,6 +264,7 @@ class RuleEngine(object):
 
 	def clear_rules(self):
 		self.rules = { }
+		self.write_rules_file()
 
 	def validate_data_stream(self, data_stream, raise_errors=False):
 		"""
@@ -294,8 +295,8 @@ if __name__ == "__main__":
 	datastream = open('raw_data.json', 'r').read()
 	datastream = json.loads(datastream)
 
-	ruleengine.validate_data_stream(datastream)
-	ruleengine.write_rules_file()
+	#ruleengine.validate_data_stream(datastream)
+	
 
 
 
